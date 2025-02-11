@@ -1,5 +1,4 @@
 use std::env;
-use std::sync::Arc;
 
 use dotenv::dotenv;
 
@@ -82,7 +81,7 @@ async fn play(ctx: &serenity::Context, guild_id: &serenity::GuildId, channel_id:
     Ok(())
 }
 
-async fn leave_after_timeout(ctx: &serenity::Context, guild_id: &serenity::GuildId, mut handler: songbird::Call) {
+async fn leave_after_timeout(_ctx: &serenity::Context, _guild_id: &serenity::GuildId, mut handler: songbird::Call) {
     // Define the timeout duration
     let timeout_duration = Duration::from_secs(3); // 10 seconds timeout
     tokio::time::sleep(timeout_duration).await;
@@ -138,7 +137,7 @@ async fn event_handler(
     ctx: &serenity::Context,
     event: &serenity::FullEvent,
     _framework: poise::FrameworkContext<'_, Data, Error>,
-    data: &Data,
+    _data: &Data,
 ) -> Result<(), Error> {
     match event {
         serenity::FullEvent::Ready { data_about_bot, .. } => {
