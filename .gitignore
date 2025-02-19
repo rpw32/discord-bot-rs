@@ -32,6 +32,9 @@ Cargo.lock
 # Environment variables needed for execution
 *.env
 
+# Git files
+*.orig
+
 ### VisualStudioCode Patch ###
 # Ignore all local history of files
 .history

@@ -35,7 +35,6 @@ async fn _join(ctx: &serenity::Context, guild_id: &serenity::GuildId, channel_id
         .clone();
 
     if let Ok(handler_lock) = manager.join(*guild_id, *channel_id).await {
-
         // Print message to log that the bot successfully joined the channel
         let _ = channel_id.say(&ctx.http, "Joined the voice channel!").await;
 
@@ -48,22 +47,27 @@ async fn _join(ctx: &serenity::Context, guild_id: &serenity::GuildId, channel_id
     }
 }
 
-async fn play(ctx: &serenity::Context, guild_id: &serenity::GuildId, channel_id: &ChannelId) -> Result<(), Error> {
-
+async fn play(
+    ctx: &serenity::Context,
+    guild_id: &serenity::GuildId,
+    channel_id: &ChannelId,
+) -> Result<(), Error> {
     let manager = songbird::get(&ctx)
         .await
         .expect("Songbird Voice client placed in at initialisation.")
         .clone();
 
     if let Ok(handler_lock) = manager.join(*guild_id, *channel_id).await {
-
         // Print message to log that the bot successfully joined the channel
-        channel_id.say(&ctx.http, "Joined the voice channel!").await.unwrap();
+        channel_id
+            .say(&ctx.http, "Joined the voice channel!")
+            .await
+            .unwrap();
 
         // Attach an event handler to see notifications of all track errors.
         let mut handler = handler_lock.lock().await;
         handler.add_global_event(TrackEvent::Error.into(), TrackErrorNotifier);
-        handler.add_global_event(TrackEvent::Play.into(), TrackStartNotifier);
+        handler.add_global_event(TrackEvent::End.into(), TrackEndNotifier);
 
         // Load an audio file (change the path to your audio file)
         let track = songbird::input::File::new("./caroline.mp3").into();
@@ -72,16 +76,23 @@ async fn play(ctx: &serenity::Context, guild_id: &serenity::GuildId, channel_id:
         handler.play(track);
 
         // Let the user know that the bot is playing the audio
-        channel_id.say(&ctx.http, "Now playing your requested audio!").await.unwrap();
+        channel_id
+            .say(&ctx.http, "Now playing your requested audio!")
+            .await
+            .unwrap();
 
         // After joining, leave after a timeout
         leave_after_timeout(ctx, guild_id, handler.clone()).await;
     }
-    
+
     Ok(())
 }
 
-async fn leave_after_timeout(_ctx: &serenity::Context, _guild_id: &serenity::GuildId, mut handler: songbird::Call) {
+async fn leave_after_timeout(
+    _ctx: &serenity::Context,
+    _guild_id: &serenity::GuildId,
+    mut handler: songbird::Call,
+) {
     // Define the timeout duration
     let timeout_duration = Duration::from_secs(3); // 10 seconds timeout
     tokio::time::sleep(timeout_duration).await;
@@ -113,22 +124,12 @@ impl VoiceEventHandler for TrackErrorNotifier {
     }
 }
 
-struct TrackStartNotifier;
+struct TrackEndNotifier;
 
 #[serenity::async_trait]
-impl VoiceEventHandler for TrackStartNotifier {
-    async fn act(&self, ctx: &EventContext<'_>) -> Option<Event> {
-        println!("Track has started playing!");
-        if let EventContext::Track(track_list) = ctx {
-            for (state, handle) in *track_list {
-                println!(
-                    "Track {:?} encountered an error: {:?}",
-                    handle.uuid(),
-                    state.playing
-                );
-            }
-        }
-
+impl VoiceEventHandler for TrackEndNotifier {
+    async fn act(&self, _ctx: &EventContext<'_>) -> Option<Event> {
+        println!("Track has stopped playing!");
         None
     }
 }
@@ -144,15 +145,25 @@ async fn event_handler(
             println!("Logged in as {}", data_about_bot.user.name);
         }
         serenity::FullEvent::Message { new_message } => {
-            if new_message.content.to_lowercase().contains("sweet caroline")
+            if new_message
+                .content
+                .to_lowercase()
+                .contains("sweet caroline")
                 && new_message.author.id != ctx.cache.current_user().id
             {
                 println!("Message receive!");
-                if let Some(channel_id) = get_user_voice_channel(&new_message.author, new_message.guild(&ctx.cache).unwrap()) {
-                    play(ctx, &new_message.guild_id.unwrap(), &channel_id).await.unwrap();
-                }
-                else {
-                    println!("User {} was not in a voice channel! Unable to join.", &new_message.author.name);
+                if let Some(channel_id) = get_user_voice_channel(
+                    &new_message.author,
+                    new_message.guild(&ctx.cache).unwrap(),
+                ) {
+                    play(ctx, &new_message.guild_id.unwrap(), &channel_id)
+                        .await
+                        .unwrap();
+                } else {
+                    println!(
+                        "User {} was not in a voice channel! Unable to join.",
+                        &new_message.author.name
+                    );
                 }
             }
         }
@@ -165,6 +176,14 @@ async fn event_handler(
 #[poise::command(slash_command, prefix_command)]
 async fn ping(ctx: Context<'_>) -> Result<(), Error> {
     ctx.channel_id().say(&ctx.http(), "Pong!").await?;
+
+    Ok(())
+}
+
+#[poise::command(slash_command, prefix_command)]
+async fn timeout(ctx: Context<'_>) -> Result<(), Error> {
+
+    
 
     Ok(())
 }
